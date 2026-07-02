@@ -1,0 +1,314 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getFishList, getFishBySlug } from '../../lib/notion';
+
+export async function getStaticPaths() {
+  const fishList = await getFishList();
+  return fishList.map(f => ({ params: { slug: f.slug } }));
+}
+
+const { slug } = Astro.params;
+const fish = await getFishBySlug(slug as string);
+if (!fish) return Astro.redirect('/wiki');
+
+const fishList = await getFishList();
+const related = fishList
+  .filter(f => f.slug !== fish.slug && (f.category === fish.category || f.bestMonths.some(m => fish.bestMonths.includes(m))))
+  .slice(0, 3);
+
+const maxNut = { calories: 400, protein: 30, fat: 35 };
+---
+<BaseLayout title={`${fish.name} — ${fish.japaneseName.split(' / ')[0]}`} description={fish.description.slice(0,120)} activePage="wiki">
+
+  <!-- Breadcrumb -->
+  <div style="background:var(--bg-subtle);border-bottom:1px solid var(--border)">
+    <div class="container" style="padding:12px 1.25rem;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-muted)">
+      <a href="/" style="color:var(--text-muted)">首页</a>
+      <span>/</span>
+      <a href="/wiki" style="color:var(--text-muted)">百科</a>
+      <span>/</span>
+      <span style="color:var(--text);font-weight:600">{fish.name}</span>
+    </div>
+  </div>
+
+  <!-- Hero -->
+  <div style={`background:linear-gradient(135deg,${fish.gradientFrom??'#C41E3A'} 0%,${fish.gradientTo??'#B8860B'} 100%);padding:3rem 1.25rem;display:flex;align-items:center;justify-content:center;flex-direction:column;text-align:center;position:relative;overflow:hidden;min-height:220px`}>
+    <div aria-hidden style="position:absolute;inset:0;font-size:8rem;display:flex;align-items:center;justify-content:center;opacity:.08;pointer-events:none;user-select:none">{fish.emoji||'🐟'}</div>
+    <div style="position:relative;z-index:1">
+      <div style="font-size:5rem;margin-bottom:12px" class="anim-float">{fish.emoji||'🐟'}</div>
+      <h1 style="color:#fff;font-size:clamp(1.8rem,5vw,2.8rem);margin:0 0 8px;font-weight:800;text-shadow:0 2px 12px rgba(0,0,0,.3)">{fish.name}</h1>
+      <p style="color:rgba(255,255,255,.85);font-size:18px;margin:0 0 8px;font-style:italic">{fish.japaneseName}</p>
+      <p style="color:rgba(255,255,255,.6);font-size:13px;margin:0">{fish.nameEn}</p>
+    </div>
+  </div>
+
+  <div class="container" style="max-width:860px;padding-top:2rem">
+
+    <!-- Action Bar -->
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:2rem">
+      <div style="display:flex;gap:8px">
+        <button id="bookmarkBtn" class="btn btn-secondary" onclick="toggleBookmark()">🤍 收藏</button>
+        <button class="btn btn-secondary" onclick="shareLink()">🔗 分享</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:13px;color:var(--text-muted)">我的评分：</span>
+        <div id="stars" style="display:inline-flex;gap:3px">
+          {[1,2,3,4,5].map(s => (
+            <span onclick={`rate(${s})`} data-star={s} style="font-size:24px;cursor:pointer;color:#d1d5db;transition:color .15s" onmouseover={`hoverStar(${s})`} onmouseout="unhoverStar()">★</span>
+          ))}
+        </div>
+        <span id="rateLabel" style="font-size:13px;color:var(--text-muted)">点击评分</span>
+      </div>
+    </div>
+
+    <!-- Tags -->
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:2rem">
+      <span class="badge badge-gray">{fish.category}</span>
+      <span class={`badge ${fish.difficulty==='精深'?'badge-gold':fish.difficulty==='中等'?'badge-blue':'badge-green'}`}>难度：{fish.difficulty}</span>
+      {fish.bestMonths.length >= 10
+        ? <span class="badge badge-green">🌿 全年</span>
+        : fish.bestMonths.map(m => <span class="badge badge-red">{m}</span>)
+      }
+    </div>
+
+    <!-- Tabs -->
+    <div style="display:flex;gap:4px;border-bottom:2px solid var(--border);margin-bottom:1.5rem">
+      {['info','nutrition','notes'].map(t => (
+        <button class={`tab-btn ${t==='info'?'active':''}`} onclick={`switchTab('${t}')`}
+          style={`padding:10px 20px;background:transparent;border:none;cursor:pointer;font-size:14px;font-weight:600;transition:all .2s;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:inherit;color:var(--text-2)`}>
+          {t==='info'?'📖 详细介绍':t==='nutrition'?'🔬 营养数据':'📝 品鉴笔记'}
+        </button>
+      ))}
+    </div>
+
+    <!-- Info Tab -->
+    <div id="tab-info" class="tab-pane" style="display:block">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1.5rem;margin-bottom:2rem">
+        <div style="display:flex;flex-direction:column;gap:1rem">
+          <div class="card" style="padding:1.5rem">
+            <h3 style="font-size:15px;font-weight:700;margin:0 0 1rem;color:var(--text-2)">📋 基本信息</h3>
+            <dl style="display:grid;grid-template-columns:auto 1fr;gap:8px 16px;font-size:14px;margin:0">
+              <dt style="color:var(--text-muted);font-weight:600;white-space:nowrap">产地</dt>
+              <dd style="color:var(--text);margin:0;line-height:1.65">{fish.origin}</dd>
+              <dt style="color:var(--text-muted);font-weight:600;white-space:nowrap">口味</dt>
+              <dd style="color:var(--text);margin:0;line-height:1.65">{fish.flavor}</dd>
+              <dt style="color:var(--text-muted);font-weight:600;white-space:nowrap">质地</dt>
+              <dd style="color:var(--text);margin:0;line-height:1.65">{fish.texture}</dd>
+              <dt style="color:var(--text-muted);font-weight:600;white-space:nowrap">推荐方式</dt>
+              <dd style="color:var(--text);margin:0;line-height:1.65">{fish.eatingMethod}</dd>
+            </dl>
+          </div>
+          <div class="card" style="padding:1.5rem">
+            <h3 style="font-size:15px;font-weight:700;margin:0 0 1rem;color:var(--text-2)">🗓️ 旬味月历</h3>
+            <div style="display:flex;gap:5px;flex-wrap:wrap">
+              {Array.from({length:12},(_,i)=>i+1).map(m => {
+                const active = fish.bestMonths.includes(`${m}月`);
+                return (
+                  <div style={`width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:${active?700:400};background:${active?'var(--red)':'var(--bg-subtle)'};color:${active?'#fff':'var(--text-muted)'};border:1px solid ${active?'var(--red)':'var(--border)'}`}>{m}</div>
+                );
+              })}
+            </div>
+            <p style="font-size:12px;color:var(--text-muted);margin-top:10px;margin-bottom:0">红色 = 当季最佳月份</p>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:1rem">
+          <div class="card" style="padding:1.5rem">
+            <h3 style="font-size:15px;font-weight:700;margin:0 0 1rem;color:var(--text-2)">🍶 清酒搭配</h3>
+            <div style="background:linear-gradient(135deg,rgba(184,134,11,.08),rgba(184,134,11,.04));border:1px solid rgba(184,134,11,.2);border-radius:10px;padding:1rem">
+              <p style="font-size:17px;font-weight:700;color:var(--gold);margin:0 0 8px">{fish.sakePairing}</p>
+              <p style="font-size:13px;color:var(--text-2);margin:0;line-height:1.75">{fish.sakeNote}</p>
+            </div>
+          </div>
+          <div class="card" style="padding:1.5rem">
+            <h3 style="font-size:15px;font-weight:700;margin:0 0 1rem;color:var(--text-2)">📖 鱼种详解</h3>
+            <p style="font-size:14px;color:var(--text);line-height:1.9;margin:0">{fish.description}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Nutrition Tab -->
+    <div id="tab-nutrition" class="tab-pane" style="display:none">
+      <div class="card" style="padding:1.75rem">
+        <h3 style="font-size:16px;font-weight:700;margin-bottom:6px">🔬 每 100g 营养成分</h3>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:1.75rem">数据来源于农林水産省食品成分数据库，仅供参考</p>
+        {[
+          {label:'热量 (kcal)', val:fish.calories, max:maxNut.calories, color:'#ef4444'},
+          {label:'蛋白质 (g)',  val:fish.protein,  max:maxNut.protein,  color:'#3b82f6'},
+          {label:'脂肪 (g)',    val:fish.fat,       max:maxNut.fat,      color:'#f59e0b'},
+        ].map(n => (
+          <div style="margin-bottom:1.5rem">
+            <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+              <span style="font-size:14px;font-weight:600">{n.label}</span>
+              <span style={`font-size:18px;font-weight:800;color:${n.color}`}>{n.val}</span>
+            </div>
+            <div class="nut-wrap">
+              <div class="nut-bar" style={`width:${Math.min((n.val/n.max)*100,100)}%;background:${n.color}`}></div>
+            </div>
+          </div>
+        ))}
+        <div style="margin-top:1.5rem;padding:1rem;background:var(--bg-subtle);border-radius:10px;display:flex;gap:2rem;flex-wrap:wrap">
+          {[
+            {icon:'🔥',label:'热量',val:`${fish.calories} kcal`},
+            {icon:'💪',label:'蛋白质',val:`${fish.protein} g`},
+            {icon:'🫧',label:'脂肪',val:`${fish.fat} g`},
+          ].map(n => (
+            <div style="text-align:center;flex:1;min-width:80px">
+              <div style="font-size:28px">{n.icon}</div>
+              <div style="font-size:18px;font-weight:800">{n.val}</div>
+              <div style="font-size:12px;color:var(--text-muted)">{n.label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+
+    <!-- Notes Tab -->
+    <div id="tab-notes" class="tab-pane" style="display:none">
+      <div class="card" style="padding:1.5rem;margin-bottom:1.5rem">
+        <h3 style="font-size:15px;font-weight:700;margin:0 0 1rem">✍️ 记录品鉴笔记</h3>
+        <textarea id="noteText" class="input" rows="3" placeholder={`记录你品尝 ${fish.name} 的感受、风味、印象...`} style="resize:vertical;margin-bottom:10px"></textarea>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <input id="noteRestaurant" class="input" type="text" placeholder="🍴 就餐餐厅（可选）" style="max-width:240px"/>
+          <button class="btn btn-primary" onclick="saveNote()">💾 保存笔记</button>
+        </div>
+      </div>
+      <div id="notesList"></div>
+    </div>
+
+    <!-- Related -->
+    {related.length > 0 && (
+      <section style="margin-top:3rem">
+        <h2 class="section-title">🐟 相关鱼种</h2>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:1.25rem">
+          {related.map((f,i) => (
+            <a href={`/wiki/${f.slug}`} class="card anim-up" style={`text-decoration:none;animation-delay:${i*0.05}s`}>
+              <div class="fish-hdr" style={`background:linear-gradient(135deg,${f.gradientFrom??'#C41E3A'},${f.gradientTo??'#B8860B'})`}>
+                <span style="font-size:3rem;position:relative;z-index:1">{f.emoji||'🐟'}</span>
+              </div>
+              <div style="padding:14px 16px">
+                <h3 style="font-size:15px;font-weight:700;margin:0 0 3px">{f.name}</h3>
+                <p style="font-size:12px;color:var(--text-muted);margin:0">{f.japaneseName.split(' / ')[0]}</p>
+              </div>
+            </a>
+          ))}
+        </div>
+      </section>
+    )}
+
+    <div style="margin-top:2.5rem;text-align:center;margin-bottom:3rem">
+      <a href="/wiki" class="btn btn-secondary">← 返回百科列表</a>
+    </div>
+  </div>
+</BaseLayout>
+
+<script define:vars={{ fishSlug: fish.slug, fishName: fish.name }}>
+const SLUG = fishSlug;
+
+// ── Tabs ────────────────────────────────────────────
+function switchTab(t) {
+  document.querySelectorAll('.tab-pane').forEach(p => p.style.display = 'none');
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    b.style.color = 'var(--text-2)';
+    b.style.borderBottomColor = 'transparent';
+  });
+  document.getElementById('tab-' + t).style.display = 'block';
+  const btns = document.querySelectorAll('.tab-btn');
+  const idx = ['info','nutrition','notes'].indexOf(t);
+  btns[idx].style.color = 'var(--red)';
+  btns[idx].style.borderBottomColor = 'var(--red)';
+}
+window.switchTab = switchTab;
+
+// ── Rating ───────────────────────────────────────────
+let currentRating = parseInt(localStorage.getItem('sushi_rate_' + SLUG) || '0');
+function renderStars(rating, hover = 0) {
+  const display = hover || rating;
+  document.querySelectorAll('#stars span').forEach((s, i) => {
+    s.style.color = (i + 1) <= display ? '#f59e0b' : '#d1d5db';
+  });
+}
+function rate(n) {
+  currentRating = n === currentRating ? 0 : n;
+  localStorage.setItem('sushi_rate_' + SLUG, currentRating);
+  renderStars(currentRating);
+  document.getElementById('rateLabel').textContent = currentRating > 0 ? currentRating + '/5' : '点击评分';
+}
+function hoverStar(n) { renderStars(currentRating, n); }
+function unhoverStar() { renderStars(currentRating); }
+window.rate = rate; window.hoverStar = hoverStar; window.unhoverStar = unhoverStar;
+renderStars(currentRating);
+if (currentRating > 0) document.getElementById('rateLabel').textContent = currentRating + '/5';
+
+// ── Bookmark ─────────────────────────────────────────
+function toggleBookmark() {
+  const bks = JSON.parse(localStorage.getItem('sushi_bookmarks') || '[]');
+  const idx = bks.indexOf(SLUG);
+  const btn = document.getElementById('bookmarkBtn');
+  if (idx >= 0) {
+    bks.splice(idx, 1);
+    btn.textContent = '🤍 收藏';
+  } else {
+    bks.push(SLUG);
+    btn.textContent = '❤️ 已收藏';
+    btn.style.background = 'var(--red)';
+    btn.style.color = '#fff';
+  }
+  localStorage.setItem('sushi_bookmarks', JSON.stringify(bks));
+}
+window.toggleBookmark = toggleBookmark;
+const bks = JSON.parse(localStorage.getItem('sushi_bookmarks') || '[]');
+if (bks.includes(SLUG)) {
+  const btn = document.getElementById('bookmarkBtn');
+  btn.textContent = '❤️ 已收藏';
+  btn.style.background = 'var(--red)';
+  btn.style.color = '#fff';
+}
+
+// ── Share ────────────────────────────────────────────
+function shareLink() {
+  navigator.clipboard?.writeText(location.href).then(() => {
+    const btn = document.querySelector('[onclick="shareLink()"]');
+    if (btn) { btn.textContent = '✅ 已复制'; setTimeout(() => btn.textContent = '🔗 分享', 2000); }
+  });
+}
+window.shareLink = shareLink;
+
+// ── Notes ────────────────────────────────────────────
+function loadNotes() {
+  const all = JSON.parse(localStorage.getItem('sushi_notes') || '[]');
+  const notes = all.filter(n => n.fishSlug === SLUG);
+  const list = document.getElementById('notesList');
+  if (!notes.length) {
+    list.innerHTML = `<div style="text-align:center;padding:2.5rem;color:var(--text-muted)"><div style="font-size:48px;margin-bottom:12px">📝</div><p style="margin:0">还没有品鉴笔记，记录你第一次品尝 ${fishName} 的感受吧！</p></div>`;
+    return;
+  }
+  list.innerHTML = notes.map(n => `
+    <div class="note-item" style="margin-bottom:.875rem">
+      <p style="margin:0 0 8px;font-size:14px;line-height:1.75">${n.text}</p>
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--text-muted)">
+        <span>${n.restaurant ? '🍴 ' + n.restaurant + ' · ' : ''}${new Date(n.createdAt).toLocaleDateString('zh-CN')}</span>
+        <button onclick="deleteNote('${n.id}')" style="background:transparent;border:none;cursor:pointer;color:var(--text-muted);font-size:12px;padding:2px 6px;border-radius:4px">删除</button>
+      </div>
+    </div>
+  `).join('');
+}
+function saveNote() {
+  const text = document.getElementById('noteText').value.trim();
+  const restaurant = document.getElementById('noteRestaurant').value.trim();
+  if (!text) return;
+  const all = JSON.parse(localStorage.getItem('sushi_notes') || '[]');
+  all.unshift({ id: Date.now().toString(36), fishSlug: SLUG, text, restaurant: restaurant || undefined, createdAt: new Date().toISOString() });
+  localStorage.setItem('sushi_notes', JSON.stringify(all));
+  document.getElementById('noteText').value = '';
+  document.getElementById('noteRestaurant').value = '';
+  loadNotes();
+}
+function deleteNote(id) {
+  const all = JSON.parse(localStorage.getItem('sushi_notes') || '[]').filter(n => n.id !== id);
+  localStorage.setItem('sushi_notes', JSON.stringify(all));
+  loadNotes();
+}
+window.saveNote = saveNote; window.deleteNote = deleteNote;
+loadNotes();
+</script>

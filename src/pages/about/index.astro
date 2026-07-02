@@ -1,0 +1,93 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+const features = [
+  {icon:'📖',title:'系统化百科',desc:'30种常用寿司食材，涵盖产地、季节、烹饪方式、清酒搭配等结构化数据'},
+  {icon:'🌿',title:'旬味日历',desc:'基于日本节气的时令推荐，随时掌握当月最佳食材'},
+  {icon:'🍶',title:'清酒配对',desc:'专业品鉴师建议的清酒搭配方案，智能匹配最佳饮食组合'},
+  {icon:'✏️',title:'用户共创',desc:'开放投稿系统，由寿司爱好者共同丰富内容'},
+  {icon:'🔥',title:'热量计算',desc:'记录寿司摄入热量，健康饮食心中有数'},
+  {icon:'🧰',title:'实用工具箱',desc:'清酒配对、旬味日历、热量计算、知识问答，让寿司体验更有趣'},
+];
+const roadmap = [
+  {s:'done',  t:'基础百科数据（30种食材）'},
+  {s:'done',  t:'旬味日历 & 清酒配对工具'},
+  {s:'done',  t:'热量计算器 & 知识问答'},
+  {s:'done',  t:'用户投稿 & 品鉴笔记'},
+  {s:'done',  t:'深色模式切换'},
+  {s:'doing', t:'多语言支持（中/日/英/法/西/阿/俄）'},
+  {s:'plan',  t:'轻量级 CMS 后台管理'},
+  {s:'plan',  t:'PWA 离线访问'},
+  {s:'plan',  t:'SEO 优化'},
+];
+const ss: Record<string,{bg:string,color:string,label:string}> = {
+  done:  {bg:'rgba(34,197,94,.1)',   color:'#16a34a', label:'已完成'},
+  doing: {bg:'rgba(59,130,246,.1)',  color:'#2563eb', label:'进行中'},
+  plan:  {bg:'rgba(156,163,175,.15)',color:'#9ca3af', label:'计划中'},
+};
+---
+<BaseLayout title="关于我们" activePage="about">
+  <!-- Hero -->
+  <section style="background:linear-gradient(135deg,#1C1C1C,#2d1a0e);padding:5rem 1.25rem 4rem;text-align:center;position:relative;overflow:hidden">
+    <div style="position:absolute;inset:0;opacity:.04;font-size:6rem;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:2rem;pointer-events:none;user-select:none;overflow:hidden" aria-hidden>
+      {'🍣'.repeat(16).split('').map(()=>'🍣 ').join('')}
+    </div>
+    <div style="position:relative;z-index:1">
+      <div style="font-size:64px;margin-bottom:16px">🍣</div>
+      <h1 style="color:#fff;font-size:clamp(2rem,5vw,3rem);font-weight:800;margin:0 0 16px">关于 <span style="color:#DAA520">OmaToro</span></h1>
+      <p style="color:rgba(255,255,255,.65);font-size:18px;max-width:540px;margin:0 auto 28px;line-height:1.75">寿司百科 · 旬味 · 清酒配对<br/>由爱好者共建 · 为爱好者服务</p>
+      <a href="mailto:hello@omatoro.com" class="btn btn-primary btn-lg" style="display:inline-flex">📬 联系我们</a>
+    </div>
+  </section>
+
+  <div class="container" style="max-width:900px;padding-top:3.5rem">
+    <!-- Mission -->
+    <section style="margin-bottom:3.5rem;text-align:center">
+      <h2 class="gradient-text" style="font-size:1.75rem;margin-bottom:16px;font-weight:800">我们的使命</h2>
+      <p style="color:var(--text-2);font-size:16px;max-width:640px;margin:0 auto;line-height:1.9">
+        寿司文化博大精深，从江户前的严苛工艺到现代创意料理，每一片鱼生都承载着季节、产地与匠人的故事。<br/>
+        <strong style="color:var(--text)">OmaToro</strong> 致力于将这些知识系统化、数字化，
+        让每一位寿司爱好者都能轻松查阅、学习和分享，领略这门饮食文化的深度之美。
+      </p>
+    </section>
+
+    <!-- Features -->
+    <section style="margin-bottom:3.5rem">
+      <h2 class="section-title">✨ 核心功能</h2>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:1.25rem">
+        {features.map(f => (
+          <div class="card" style="padding:1.5rem">
+            <div style="font-size:36px;margin-bottom:12px">{f.icon}</div>
+            <h3 style="font-size:16px;font-weight:700;margin-bottom:8px">{f.title}</h3>
+            <p style="font-size:14px;color:var(--text-2);line-height:1.7;margin:0">{f.desc}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <!-- Roadmap -->
+    <section style="margin-bottom:3.5rem">
+      <h2 class="section-title">🗺️ 开发路线图</h2>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        {roadmap.map(item => {
+          const s = ss[item.s];
+          return (
+            <div style="display:flex;align-items:center;gap:14px;padding:14px 18px;background:var(--bg-card);border-radius:var(--r);border:1px solid var(--border)">
+              <span style={`font-size:11px;font-weight:700;padding:3px 10px;border-radius:9999px;background:${s.bg};color:${s.color};white-space:nowrap;min-width:52px;text-align:center`}>{s.label}</span>
+              <span style={`font-size:15px;color:${item.s==='plan'?'var(--text-muted)':'var(--text)'}`}>{item.t}</span>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <section style="background:linear-gradient(135deg,var(--red),#9B162D);border-radius:var(--r-lg);padding:2.5rem 2rem;text-align:center;color:#fff;margin-bottom:3rem">
+      <h2 style="font-size:1.5rem;margin:0 0 12px">🙌 加入我们的共创计划</h2>
+      <p style="color:rgba(255,255,255,.8);max-width:480px;margin:0 auto 24px;line-height:1.75">无论您是寿司师傅、品鉴师、日料爱好者还是开发者，我们都欢迎您的参与和贡献！</p>
+      <div style="display:flex;justify-content:center;gap:12px;flex-wrap:wrap">
+        <a href="/wiki" class="btn" style="background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.3)">✏️ 立即投稿</a>
+        <a href="mailto:hello@omatoro.com" class="btn" style="background:#fff;color:var(--red)">📬 hello@omatoro.com</a>
+      </div>
+    </section>
+  </div>
+</BaseLayout>

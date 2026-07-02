@@ -1,0 +1,240 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { getFishList, getSeasonalFish } from '../lib/notion';
+
+const allFish  = await getFishList();
+const month    = new Date().getMonth() + 1;
+const seasonal = (await getSeasonalFish(month)).slice(0, 3);
+const featured = allFish.slice(0, 6);
+
+const MONTH_ZH = ['','一月','二月','三月','四月','五月','六月',
+                   '七月','八月','九月','十月','十一月','十二月'];
+
+const stats = [
+  { val: `${allFish.length}+`, label: '鱼种图鉴', icon: '🐟' },
+  { val: '6+',                  label: '清酒类型', icon: '🍶' },
+  { val: '12',                  label: '旬味月历', icon: '📅' },
+  { val: '∞',                   label: '社区共创', icon: '🙌' },
+];
+
+const tools = [
+  { icon:'🍶', title:'清酒配对',  desc:'选择鱼种，获取专业清酒推荐', href:'/tools', color:'#4776E6' },
+  { icon:'📅', title:'旬味日历',  desc:'当月最佳时令食材一键查看',   href:'/tools', color:'#0F9B58' },
+  { icon:'🔥', title:'热量计算',  desc:'实时记录今日寿司摄入热量',   href:'/tools', color:'#FF8008' },
+  { icon:'🎯', title:'知识问答',  desc:'测验你的寿司文化知识等级',   href:'/tools', color:'#DA22FF' },
+];
+---
+<BaseLayout title="旬味 · 配对 · 匠心社区" activePage="home"
+  description="OmaToro — 探索寿司文化的终极目的地。旬味日历、清酒配对、18种鱼类图鉴，由寿司爱好者共同构建的匠心社区。">
+
+  <section class="hero-section">
+    <div class="hero-glow" aria-hidden="true"></div>
+    <div class="hero-bg-emojis" aria-hidden="true">
+      {['🍣','🐟','🍶','🌿','🐙','🦐','🐚','🦑'].map((e,i) => (
+        <span style={`animation-delay:${i*0.7}s;animation-duration:${4+i*0.4}s`}>{e}</span>
+      ))}
+    </div>
+    <div class="container">
+      <div class="hero-inner">
+        <div class="hero-badge anim-up">✨ 寿司文化探索社区 · Beta</div>
+        <div class="hero-brand anim-up d1">
+          <svg width="52" height="52" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" class="hero-logo-svg">
+            <circle cx="18" cy="18" r="16" stroke="#ff6b6b" stroke-width="2.5" stroke-linecap="round"
+              stroke-dasharray="88 12" stroke-dashoffset="6"
+              style="transform-origin:center;transform:rotate(-15deg)"/>
+            <ellipse cx="17" cy="18" rx="8" ry="5.5" fill="#ff6b6b" opacity="0.92"/>
+            <path d="M25 18 C27 14 31 13 31 18 C31 23 27 22 25 18Z" fill="#ff6b6b" opacity="0.75"/>
+            <circle cx="12.5" cy="17" r="1.5" fill="#fff"/>
+            <circle cx="12.5" cy="17" r="0.7" fill="#c0392b"/>
+            <path d="M15 16 Q18 15.5 22 16.5" stroke="#fff" stroke-width="0.8" opacity="0.6" stroke-linecap="round"/>
+          </svg>
+          <h1 class="hero-title">
+            <span class="hero-oma">Oma</span><span class="hero-toro">Toro</span>
+          </h1>
+        </div>
+        <p class="hero-tagline anim-up d2" data-i18n="hero.subtitle">旬味 · 配对 · 匠心社区</p>
+        <p class="hero-sub anim-up d2">
+          <span data-i18n="hero.desc">探索 {allFish.length} 种寿司鱼类的季节之美 · 清酒搭配的精妙艺术<br class="hide-mobile"/>由爱好者共建 · 匠人精神驱动</span>
+        </p>
+        <form class="hero-search anim-up d3" action="/wiki" method="get">
+          <div class="hero-search-inner">
+            <span class="search-icon">🔍</span>
+            <input class="input hero-input" name="q" type="text" placeholder="搜索鱼种名、产地、清酒类型..." data-i18n-placeholder="hero.searchPlaceholder"/>
+          </div>
+          <button type="submit" class="btn btn-primary btn-lg" style="border-radius:14px" data-i18n="hero.search">探索</button>
+        </form>
+        <div class="hero-actions anim-up d4">
+          <a href="/wiki"        class="btn btn-lg hero-btn-wiki" data-i18n="wiki.title">📖 鱼种图鉴</a>
+          <a href="/tools"       class="btn btn-lg hero-btn-tools" data-i18n="tools.title">🧰 工具箱</a>
+          <a href="/wiki#submit" class="btn btn-lg hero-btn-submit" data-i18n="submit.browse">✏️ 投稿共建</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="stats-bar">
+    <div class="container stats-grid">
+      {stats.map(s => (
+        <div class="stat-item">
+          <div class="stat-icon">{s.icon}</div>
+          <div class="stat-val">{s.val}</div>
+          <div class="stat-label">{s.label}</div>
+        </div>
+      ))}
+    </div>
+  </section>
+
+  <div class="container page-body">
+    {seasonal.length > 0 && (
+      <section class="home-section">
+        <div class="section-header">
+          <h2 class="section-title" data-i18n="seasonal.title">🌿 {MONTH_ZH[month]}旬味推荐</h2>
+          <span class="month-chip">{month}月</span>
+        </div>
+        <div class="fish-grid">
+          {seasonal.map((fish, i) => (
+            <a href={`/wiki/${fish.slug}`} class="card fish-card anim-up" style={`animation-delay:${i*0.06}s`}>
+              <div class="fish-hdr" style={`background:linear-gradient(135deg,${fish.gradientFrom||'#C41E3A'},${fish.gradientTo||'#B8860B'})`}>
+                <span class="fish-emoji">{fish.emoji||'🐟'}</span>
+                <span class="fish-cat-badge">{fish.category}</span>
+                {fish.difficulty && (<span class={`fish-diff-badge diff-${fish.difficulty}`}>{fish.difficulty}</span>)}
+              </div>
+              <div class="fish-body">
+                <h3 class="fish-name">{fish.name}</h3>
+                <p class="fish-ja">{fish.japaneseName?.split(' / ')[0]}</p>
+                <div class="fish-months">
+                  {fish.bestMonths?.length >= 10
+                    ? <span class="badge badge-green">🌿 全年</span>
+                    : fish.bestMonths?.slice(0,4).map(m => (<span class="badge badge-red" style="font-size:11px">{m}</span>))
+                  }
+                </div>
+                <div class="fish-meta">
+                  <span>🍽️ {fish.eatingMethod}</span>
+                  <span>🍶 {fish.sakePairing}</span>
+                </div>
+              </div>
+            </a>
+          ))}
+        </div>
+        <div class="section-more">
+          <a href="/tools#calendar" class="more-link" data-i18n="seasonal.viewCalendar">查看完整旬味日历 →</a>
+        </div>
+      </section>
+    )}
+
+    <section class="home-section">
+      <div class="section-header">
+        <h2 class="section-title" data-i18n="wiki.title">📖 鱼种图鉴</h2>
+        <a href="/wiki" class="btn btn-secondary btn-sm" data-i18n="seasonal.allFish">全部 {allFish.length} 种 →</a>
+      </div>
+      <div class="fish-grid">
+        {featured.map((fish, i) => (
+          <a href={`/wiki/${fish.slug}`} class="card fish-card anim-up" style={`animation-delay:${i*0.05}s`}>
+            <div class="fish-hdr" style={`background:linear-gradient(135deg,${fish.gradientFrom||'#C41E3A'},${fish.gradientTo||'#B8860B'})`}>
+              <span class="fish-emoji">{fish.emoji||'🐟'}</span>
+              <span class="fish-cat-badge">{fish.category}</span>
+              {fish.difficulty && (<span class={`fish-diff-badge diff-${fish.difficulty}`}>{fish.difficulty}</span>)}
+            </div>
+            <div class="fish-body">
+              <h3 class="fish-name">{fish.name}</h3>
+              <p class="fish-ja">{fish.japaneseName?.split(' / ')[0]}</p>
+              <div class="fish-months">
+                {fish.bestMonths?.length >= 10
+                  ? <span class="badge badge-green">🌿 全年</span>
+                  : fish.bestMonths?.slice(0,3).map(m => (<span class="badge badge-red" style="font-size:11px">{m}</span>))
+                }
+              </div>
+              <div class="fish-meta">
+                <span>🍽️ {fish.eatingMethod}</span>
+                <span>🍶 {fish.sakePairing}</span>
+              </div>
+            </div>
+          </a>
+        ))}
+      </div>
+    </section>
+
+    <section class="ugc-cta">
+      <div class="ugc-left">
+        <h2 data-i18n="submit.title">🙌 共建 OmaToro</h2>
+        <p data-i18n="submit.desc">您品尝过哪些令人难忘的寿司鱼种？分享品鉴笔记、投稿新食材，让 OmaToro 随匠心社区一起成长。</p>
+      </div>
+      <div class="ugc-actions">
+        <a href="/wiki#submit" class="btn btn-primary" data-i18n="submit.now">✏️ 立即投稿</a>
+        <a href="/wiki"        class="btn btn-secondary" data-i18n="submit.browse">📖 浏览百科</a>
+      </div>
+    </section>
+
+    <section class="home-section" style="margin-bottom:4rem">
+      <h2 class="section-title" data-i18n="tools.title">🧰 匠心工具箱</h2>
+      <div class="tools-grid">
+        {tools.map(t => (
+          <a href={t.href} class="card tool-card">
+            <div class="tool-icon-wrap" style={`background:${t.color}18`}>{t.icon}</div>
+            <h3 data-i18n={`tools.${t.title === '清酒配对' ? 'pairing' : t.title === '旬味日历' ? 'calendar' : t.title === '热量计算' ? 'calories' : 'quiz'}`}>{t.title}</h3>
+            <p data-i18n={`tools.${t.title === '清酒配对' ? 'pairingDesc' : t.title === '旬味日历' ? 'calendarDesc' : t.title === '热量计算' ? 'caloriesDesc' : 'quizDesc'}`}>{t.desc}</p>
+          </a>
+        ))}
+      </div>
+    </section>
+  </div>
+</BaseLayout>
+
+<style>
+.hero-section{background:linear-gradient(150deg,#1a0808 0%,#2d1008 35%,#1C1C1C 70%,#0d0d0d 100%);padding:clamp(3.5rem,9vw,6.5rem) 1.25rem clamp(4.5rem,11vw,8rem);text-align:center;position:relative;overflow:hidden}
+.hero-glow{position:absolute;width:700px;height:700px;border-radius:50%;background:radial-gradient(circle,rgba(196,30,58,.2) 0%,transparent 65%);top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none}
+.hero-bg-emojis{position:absolute;inset:0;overflow:hidden;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-around;padding:2rem;pointer-events:none;user-select:none}
+.hero-bg-emojis span{font-size:clamp(1.5rem,3vw,2.5rem);opacity:.04;animation:floatY 4s ease-in-out infinite}
+.hero-inner{position:relative;z-index:1}
+.hero-badge{display:inline-flex;align-items:center;gap:8px;padding:6px 18px;border-radius:9999px;margin-bottom:24px;background:rgba(184,134,11,.15);border:1px solid rgba(184,134,11,.3);color:#DAA520;font-size:13px;font-weight:600}
+.hero-brand{display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:14px}
+.hero-logo-svg{filter:drop-shadow(0 2px 8px rgba(255,100,100,.4))}
+.hero-title{font-size:clamp(2.8rem,8vw,5.5rem);font-weight:900;margin:0;line-height:1;letter-spacing:-.03em;font-family:'Noto Serif SC',serif}
+.hero-oma{color:#ff7c7c}.hero-toro{color:#DAA520}
+.hero-tagline{font-size:clamp(15px,2.5vw,19px);color:rgba(255,255,255,.7);margin:0 0 10px;font-weight:600;letter-spacing:.08em}
+.hero-sub{font-size:clamp(13px,2vw,16px);color:rgba(255,255,255,.48);max-width:560px;margin:0 auto 36px;line-height:1.8}
+.hero-search{display:flex;max-width:520px;margin:0 auto 28px;gap:10px}
+.hero-search-inner{position:relative;flex:1}
+.search-icon{position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:17px;opacity:.65;pointer-events:none;z-index:1}
+.hero-input{padding-left:44px !important;background:rgba(255,255,255,.1) !important;border:1.5px solid rgba(255,255,255,.2) !important;color:#fff !important;border-radius:14px !important}
+.hero-input::placeholder{color:rgba(255,255,255,.4) !important}
+.hero-input:focus{border-color:rgba(196,30,58,.6) !important;box-shadow:0 0 0 3px rgba(196,30,58,.2) !important}
+.hero-actions{display:flex;justify-content:center;gap:10px;flex-wrap:wrap}
+.hero-btn-wiki{background:var(--red);color:#fff;box-shadow:0 4px 16px rgba(196,30,58,.4)}
+.hero-btn-tools{background:rgba(255,255,255,.1);color:#fff;border:1.5px solid rgba(255,255,255,.2);backdrop-filter:blur(4px)}
+.hero-btn-submit{background:rgba(184,134,11,.2);color:#DAA520;border:1.5px solid rgba(184,134,11,.35)}
+.stats-bar{background:var(--bg-card);border-bottom:1px solid var(--border)}
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);text-align:center;padding:1.5rem 1.25rem}
+.stat-item{padding:1rem .5rem}
+.stat-icon{font-size:28px;margin-bottom:4px}
+.stat-val{font-size:clamp(1.6rem,4vw,2.2rem);font-weight:800;color:var(--red);line-height:1}
+.stat-label{font-size:12px;color:var(--text-muted);margin-top:4px}
+.page-body{padding-top:3rem}
+.home-section{margin-bottom:3rem}
+.section-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:1.5rem}
+.section-header .section-title{margin:0;flex:1}
+.month-chip{background:var(--red);color:#fff;padding:4px 14px;border-radius:9999px;font-size:13px;font-weight:700}
+.fish-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:1.25rem}
+.fish-card{text-decoration:none;display:block}
+.fish-emoji{font-size:3.5rem;position:relative;z-index:1;filter:drop-shadow(0 2px 4px rgba(0,0,0,.2))}
+.fish-cat-badge{position:absolute;bottom:8px;left:8px;z-index:2;font-size:11px;font-weight:600;padding:2px 8px;border-radius:9999px;background:rgba(255,255,255,.25);backdrop-filter:blur(4px);color:#fff}
+.fish-diff-badge{position:absolute;top:8px;right:8px;z-index:2;font-size:11px;font-weight:700;padding:3px 9px;border-radius:9999px;border:1px solid rgba(255,255,255,.4);color:#fff;backdrop-filter:blur(4px);background:rgba(0,0,0,.2)}
+.fish-body{padding:15px 17px 17px}
+.fish-name{font-size:17px;font-weight:700;margin:0 0 3px}
+.fish-ja{font-size:12px;color:var(--text-muted);margin:0 0 10px;font-style:italic}
+.fish-months{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px}
+.fish-meta{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--text-2)}
+.section-more{margin-top:1.25rem;text-align:right}
+.more-link{color:var(--red);font-size:14px;font-weight:600}
+.more-link:hover{text-decoration:underline}
+.ugc-cta{background:linear-gradient(135deg,var(--bg-subtle) 0%,#ede9e1 100%);border-radius:var(--r-lg);padding:2.5rem 2rem;border:1px solid var(--border);display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:1.5rem;margin-bottom:3rem}
+.ugc-left h2{font-size:1.4rem;margin:0 0 10px;font-weight:800}
+.ugc-left p{color:var(--text-2);margin:0;line-height:1.75;max-width:480px;font-size:14px}
+.ugc-actions{display:flex;flex-direction:column;gap:10px;min-width:150px}
+.tools-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:1.25rem}
+.tool-card{padding:1.5rem;text-decoration:none;display:block}
+.tool-card h3{font-size:15px;font-weight:700;margin:12px 0 6px}
+.tool-card p{font-size:13px;color:var(--text-2);margin:0;line-height:1.6}
+.tool-icon-wrap{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px}
+@media(max-width:640px){.stats-grid{grid-template-columns:repeat(2,1fr)}.hero-brand{gap:10px}.hero-logo-svg{width:40px;height:40px}.hero-search{flex-direction:column}.ugc-cta{flex-direction:column}.ugc-actions{flex-direction:row;flex-wrap:wrap}}
+</style>

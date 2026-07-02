@@ -1,0 +1,508 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getFishList } from '../../lib/notion';
+const fishList = await getFishList();
+const fishJson = JSON.stringify(fishList.map(f => ({
+  id: f.slug, name: f.name, emoji: f.emoji||'🐟',
+  sakePairing: f.sakePairing, sakeNote: f.sakeNote,
+  bestMonths: f.bestMonths, gradientFrom: f.gradientFrom||'#C41E3A',
+  gradientTo: f.gradientTo||'#B8860B',
+  calories: Math.round((f.calories||0)*0.3+50),
+  protein: Math.round((f.protein||0)*0.3*10)/10,
+})));
+---
+<BaseLayout title="工具箱" activePage="tools">
+  <div style="background:linear-gradient(135deg,#1C1C1C,#2d1a0e);padding:3.5rem 1.25rem 2.5rem;text-align:center">
+    <h1 style="color:#fff;font-size:clamp(1.8rem,5vw,2.8rem);margin:0 0 12px;font-weight:800">🧰 寿司工具箱</h1>
+    <p style="color:rgba(255,255,255,.6);margin:0;font-size:16px">精选实用工具，让寿司与清酒选择更简单、更有趣</p>
+  </div>
+  <div class="container" style="padding-top:2rem">
+    <!-- Tool Tabs -->
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:2rem">
+      {[
+        {id:'pairing', icon:'🍶', label:'清酒配对', color:'#4776E6'},
+        {id:'calendar',icon:'📅', label:'旬味日历', color:'#0F9B58'},
+        {id:'calories',icon:'🔥', label:'热量计算', color:'#FF8008'},
+        {id:'quiz',    icon:'🎯', label:'知识问答', color:'#DA22FF'},
+      ].map(t => (
+        <button onclick={`showTool('${t.id}')`} id={`tab-${t.id}`}
+          style={`padding:12px 24px;border-radius:12px;font-weight:700;font-size:15px;cursor:pointer;border:none;transition:all .2s;white-space:nowrap;font-family:inherit;${t.id==='pairing'?`background:${t.color};color:#fff;box-shadow:0 4px 16px ${t.color}44;transform:translateY(-2px)`:`background:var(--bg-card);color:var(--text-2);border:1px solid var(--border);box-shadow:var(--shadow)`}`}>
+          {t.icon} {t.label}
+        </button>
+      ))}
+    </div>
+    <!-- Panels -->
+    <div id="tool-pairing"></div>
+    <div id="tool-calendar" style="display:none"></div>
+    <div id="tool-calories" style="display:none"></div>
+    <div id="tool-quiz" style="display:none"></div>
+  </div>
+</BaseLayout>
+
+<script define:vars={{ fishData: fishJson }}>
+const FISH = JSON.parse(fishData);
+const TOOL_COLORS = { pairing:'#4776E6', calendar:'#0F9B58', calories:'#FF8008', quiz:'#DA22FF' };
+let currentTool = 'pairing';
+
+window.showTool = function(id) {
+  currentTool = id;
+  ['pairing','calendar','calories','quiz'].forEach(t => {
+    const panel = document.getElementById('tool-' + t);
+    const tab   = document.getElementById('tab-'  + t);
+    const c     = TOOL_COLORS[t];
+    panel.style.display = t === id ? 'block' : 'none';
+    if (t === id) {
+      tab.style.background = c; tab.style.color = '#fff';
+      tab.style.boxShadow = `0 4px 16px ${c}44`; tab.style.transform = 'translateY(-2px)';
+      tab.style.border = 'none';
+    } else {
+      tab.style.background = 'var(--bg-card)'; tab.style.color = 'var(--text-2)';
+      tab.style.boxShadow = 'var(--shadow)'; tab.style.transform = 'none';
+      tab.style.border = '1px solid var(--border)';
+    }
+  });
+  if (!document.getElementById('tool-'+id).dataset.rendered) {
+    renderTool(id);
+    document.getElementById('tool-'+id).dataset.rendered = '1';
+  }
+};
+
+// ── Tool 1: Sake Pairing ─────────────────────────────────────────────────
+function renderPairing() {
+  const SAKE_TYPES = [
+    {name:'大吟酿',en:'Daiginjo',desc:'精米步合50%以下，花果香浓郁，口感极为细腻优雅',emoji:'🌸',color:'#f953c6'},
+    {name:'纯米酒',en:'Junmai',desc:'纯米酿造，无添加酿造酒精，米香饱满、口感圆润',emoji:'🍚',color:'#11998e'},
+    {name:'吟酿酒',en:'Ginjo',desc:'精米步合60%以下，具有优雅的吟酿香，清爽均衡',emoji:'🌿',color:'#4776E6'},
+    {name:'起泡清酒',en:'Sparkling',desc:'充入二氧化碳或瓶内二次发酵，清爽活泼',emoji:'✨',color:'#f7971e'},
+    {name:'本酿造',en:'Honjozo',desc:'添加少量酿造酒精，辛口干爽，适饮性强',emoji:'🍶',color:'#2C3E50'},
+    {name:'浊酒',en:'Nigori',desc:'未完全过滤，乳白浑浊，口感甘甜厚重，乳酸风味突出',emoji:'🥛',color:'#9b59b6'},
+  ];
+  document.getElementById('tool-pairing').innerHTML = `
+  <div class="card" style="padding:2rem">
+    <h2 style="font-size:1.25rem;font-weight:800;margin:0 0 6px">🍶 清酒配对计算器</h2>
+    <p style="color:var(--text-2);font-size:14px;margin:0 0 1.25rem">选择鱼种，获取专业清酒搭配推荐和配对理由</p>
+    <hr style="border:none;border-top:1px solid var(--border);margin-bottom:1.25rem"/>
+    <div style="margin-bottom:1.5rem">
+      <label style="display:block;font-size:13px;font-weight:600;color:var(--text-2);margin-bottom:8px">选择鱼种</label>
+      <select id="pairingSelect" class="input" style="max-width:320px" onchange="showPairing()">
+        <option value="">— 请选择 —</option>
+        ${FISH.map(f => `<option value="${f.id}">${f.emoji} ${f.name}</option>`).join('')}
+      </select>
+    </div>
+    <div id="pairingResult" style="display:none"></div>
+    <div style="margin-top:2rem">
+      <h3 style="font-size:15px;font-weight:700;margin-bottom:1rem;color:var(--text-2)">清酒类型速查</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:.875rem">
+        ${SAKE_TYPES.map(s => `
+          <div style="padding:14px;border-radius:10px;background:${s.color}10;border:1px solid ${s.color}30">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+              <span style="font-size:22px">${s.emoji}</span>
+              <span style="font-weight:700;color:${s.color};font-size:14px">${s.name}</span>
+            </div>
+            <p style="font-size:12px;color:var(--text-2);margin:0;line-height:1.6">${s.desc}</p>
+          </div>`).join('')}
+      </div>
+    </div>
+  </div>`;
+}
+window.showPairing = function() {
+  const id = document.getElementById('pairingSelect').value;
+  const result = document.getElementById('pairingResult');
+  if (!id) { result.style.display='none'; return; }
+  const fish = FISH.find(f => f.id === id);
+  result.style.display = 'block';
+  result.innerHTML = `
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:1.5rem;padding:1rem 1.25rem;background:linear-gradient(135deg,${fish.gradientFrom}22,${fish.gradientTo}22);border-radius:12px;border:1px solid ${fish.gradientFrom}44">
+      <span style="font-size:40px">${fish.emoji}</span>
+      <div>
+        <div style="font-weight:700;font-size:17px">${fish.name}</div>
+        <div style="font-size:12px;color:var(--text-muted)">最佳季节：${fish.bestMonths.join('、')}</div>
+      </div>
+    </div>
+    <div style="padding:1.5rem;background:rgba(184,134,11,.06);border:2px solid rgba(184,134,11,.25);border-radius:14px">
+      <div style="font-size:22px;font-weight:800;color:var(--gold);margin-bottom:8px">🍶 ${fish.sakePairing}</div>
+      <div style="background:rgba(255,255,255,.8);border-radius:10px;padding:12px 14px">
+        <strong style="font-size:13px;color:var(--gold)">🎯 配对理由</strong>
+        <p style="margin:6px 0 0;font-size:14px;color:var(--text);line-height:1.75">${fish.sakeNote||'专业品鉴师推荐搭配'}</p>
+      </div>
+    </div>`;
+};
+
+// ── Tool 2: Seasonal Calendar ────────────────────────────────────────────
+function renderCalendar() {
+  const MONTH_NAMES = ['','睦月','如月','弥生','卯月','皐月','水無月','文月','葉月','長月','神無月','霜月','師走'];
+  const MONTH_CN = ['','一月','二月','三月','四月','五月','六月','七月','八月','九月','十月','十一月','十二月'];
+  const SEASON_DATA = {
+    1:  { name:'冬', color:'#4A90D9', icon:'❄️',  tip:'寒ブリ、旬の魚脂がのる季節。鍋物や炙りが最高。' },
+    2:  { name:'冬', color:'#5B8DEF', icon:'☃️',  tip:'節分を過ぎると春の気配。淡白な白身魚が楽しめる。' },
+    3:  { name:'春', color:'#E879A8', icon:'🌸',  tip:'桜の季節、春告魚として鯛が旬を迎える。' },
+    4:  { name:'春', color:'#E95B8B', icon:'🌷',  tip:'新緑が芽吹く頃、春の味覚が一気に広がる。' },
+    5:  { name:'春', color:'#D946EF', icon:'🌿',  tip:'端午の節句。鯉のぼりと共に初夏の魚が登場。' },
+    6:  { name:'夏', color:'#10B981', icon:'🌻',  tip:'梅雨明け、夏の旬が始まる。冷たい寿司が恋しい季節。' },
+    7:  { name:'夏', color:'#059669', icon:'🍉',  tip:'土用の丑の日。うなぎで夏バテ対策。' },
+    8:  { name:'夏', color:'#047857', icon:'🌊',  tip:'残暑厳しき中、秋の気配が忍び寄る。' },
+    9:  { name:'秋', color:'#F59E0B', icon:'🍁',  tip:'食欲の秋。サンマ、カツオなど秋の味覚が満載。' },
+    10: { name:'秋', color:'#D97706', icon:'🎑',  tip:'十五夜。月見団子と共に豊穣の秋を祝う。' },
+    11: { name:'秋', color:'#B45309', icon:'🍂',  tip:'木枯らしが吹き始め、冬の準備が始まる。' },
+    12: { name:'冬', color:'#3B82F6', icon:'⛩️',  tip:'師走、忘年会シーズン。寿司が一段と美味しくなる。' },
+  };
+  const SEKKI = {
+    1: [{name:'小寒',day:6},{name:'大寒',day:20}],
+    2: [{name:'立春',day:4},{name:'雨水',day:19}],
+    3: [{name:'啓蟄',day:6},{name:'春分',day:21}],
+    4: [{name:'清明',day:5},{name:'穀雨',day:20}],
+    5: [{name:'立夏',day:6},{name:'小満',day:21}],
+    6: [{name:'芒種',day:6},{name:'夏至',day:21}],
+    7: [{name:'小暑',day:7},{name:'大暑',day:23}],
+    8: [{name:'立秋',day:8},{name:'処暑',day:23}],
+    9: [{name:'白露',day:8},{name:'秋分',day:23}],
+    10:[{name:'寒露',day:8},{name:'霜降',day:23}],
+    11:[{name:'立冬',day:7},{name:'小雪',day:22}],
+    12:[{name:'大雪',day:7},{name:'冬至',day:22}],
+  };
+  const curMonth = new Date().getMonth() + 1;
+  let selMonth = curMonth;
+  const el = document.getElementById('tool-calendar');
+  function renderCalUI() {
+    const mFish = FISH.filter(f => f.bestMonths.includes(selMonth+'月'));
+    const sd = SEASON_DATA[selMonth];
+    const sekki = SEKKI[selMonth];
+    const kingFish = mFish.length > 0 ? mFish[Math.floor(Math.random()*mFish.length)] : null;
+    el.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr;gap:1.5rem">
+      <div class="card" style="overflow:hidden">
+        <div style="background:linear-gradient(135deg,${sd.color}dd,${sd.color}99);padding:2rem;color:#fff;position:relative;overflow:hidden">
+          <div style="position:absolute;right:-20px;top:-20px;font-size:120px;opacity:.15">${sd.icon}</div>
+          <div style="position:relative;z-index:1">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+              <span style="font-size:32px">${sd.icon}</span>
+              <div>
+                <div style="font-size:13px;opacity:.85">${sd.name}の旬 · ${MONTH_CN[selMonth]}</div>
+                <div style="font-size:28px;font-weight:800;letter-spacing:.05em">${MONTH_NAMES[selMonth]}</div>
+              </div>
+              ${selMonth===curMonth?'<span style="margin-left:auto;padding:6px 14px;border-radius:9999px;font-size:12px;font-weight:700;background:rgba(255,255,255,.25);backdrop-filter:blur(8px)">📍 今月</span>':''}
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+              ${sekki.map(s=>`<span style="padding:4px 12px;border-radius:9999px;font-size:12px;font-weight:600;background:rgba(255,255,255,.2);backdrop-filter:blur(4px)">🍃 ${s.name}（${s.day}日）</span>`).join('')}
+            </div>
+          </div>
+        </div>
+        <div style="padding:1.5rem 2rem">
+          <p style="margin:0;color:var(--text-2);font-size:14px;line-height:1.8">${sd.tip}</p>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px">
+        ${Array.from({length:12},(_,i)=>i+1).map(m => {
+          const isSel = m===selMonth, isCur = m===curMonth;
+          const sdm = SEASON_DATA[m];
+          const fishCount = FISH.filter(f=>f.bestMonths.includes(m+'月')).length;
+          return `<button onclick="selectMonth(${m})" style="padding:14px 6px;border-radius:14px;border:none;cursor:pointer;transition:all .25s;font-family:inherit;position:relative;
+            background:${isSel?sdm.color:isCur?sdm.color+'15':'var(--bg-card)'};
+            color:${isSel?'#fff':isCur?sdm.color:'var(--text-2)'};
+            font-weight:${isSel||isCur?700:500};font-size:14px;
+            box-shadow:${isSel?'0 6px 20px '+sdm.color+'55':'var(--shadow)'};
+            transform:${isSel?'translateY(-3px) scale(1.03)':'none'};
+            border:${isSel?'none':isCur?'2px solid '+sdm.color+'60':'1px solid var(--border)'}">
+            <div style="font-size:11px;margin-bottom:2px;opacity:${isSel?'.8':'1'}">${sdm.name}</div>
+            <div style="font-size:16px;font-weight:800">${m}月</div>
+            <div style="font-size:10px;margin-top:4px;opacity:${isSel?'.7':'1'}">🐟 ${fishCount}種</div>
+          </button>`;
+        }).join('')}
+      </div>
+      ${mFish.length>0?`
+      <div class="card" style="padding:1.75rem 2rem">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;flex-wrap:wrap;gap:8px">
+          <h3 style="margin:0;font-size:17px;font-weight:800;display:flex;align-items:center;gap:8px">
+            <span style="font-size:22px">🐟</span> ${MONTH_CN[selMonth]}の旬味食材
+            <span style="padding:4px 14px;border-radius:9999px;font-size:12px;font-weight:700;background:${sd.color}18;color:${sd.color};margin-left:4px">${mFish.length} 種</span>
+          </h3>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:1rem">
+          ${mFish.map(f=>`
+            <a href="/wiki/${f.id}" style="text-decoration:none;display:block;padding:16px;border-radius:14px;background:linear-gradient(145deg,${f.gradientFrom}12,${f.gradientTo}05);border:1px solid ${f.gradientFrom}25;transition:all .25s;position:relative;overflow:hidden">
+              <div style="position:absolute;right:8px;top:8px;font-size:40px;opacity:.12">${f.emoji}</div>
+              <div style="position:relative;z-index:1">
+                <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+                  <span style="font-size:36px">${f.emoji}</span>
+                  <div>
+                    <div style="font-weight:800;font-size:16px;color:var(--text)">${f.name}</div>
+                    <div style="font-size:11px;color:var(--text-muted)">旬：${f.bestMonths.join('・')}</div>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:6px;padding:6px 10px;background:rgba(255,255,255,.6);border-radius:8px;width:fit-content">
+                  <span style="font-size:13px">🍶</span>
+                  <span style="font-size:12px;font-weight:600;color:var(--gold)">${f.sakePairing}</span>
+                </div>
+              </div>
+            </a>`).join('')}
+        </div>
+      </div>
+      <div class="card" style="padding:1.5rem 2rem;background:linear-gradient(135deg,#1C1C1C,#2d1a0e);color:#fff">
+        <div style="display:flex;align-items:center;gap:14px">
+          <div style="font-size:48px">💡</div>
+          <div>
+            <div style="font-size:13px;color:rgba(255,255,255,.6);margin-bottom:4px">旬味豆知識</div>
+            <div style="font-size:15px;line-height:1.8;color:rgba(255,255,255,.88)">
+              日本の食文化では「<strong style="color:var(--gold-lt)">旬</strong>」を非常に重んじます。
+              その食材が最も美味しく、栄養価も高まる季節にいただくことで、
+              自然の恵みを最大限に味わうことができます。
+            </div>
+          </div>
+        </div>
+      </div>`:
+      `<div class="card" style="padding:3rem;text-align:center">
+        <div style="font-size:48px;margin-bottom:12px">🍽️</div>
+        <div style="font-weight:700;font-size:16px;margin-bottom:6px">${MONTH_CN[selMonth]}の旬味</div>
+        <div style="color:var(--text-muted);font-size:14px">今月の特別な旬味食材はまだ登録されていません</div>
+      </div>`}
+    </div>`;
+  }
+  window.selectMonth = function(m) { selMonth=m; renderCalUI(); };
+  renderCalUI();
+}
+
+// ── Tool 3: Calorie Calculator ──────────────────────────────────────────
+function renderCalories() {
+  const EXTRA_FOODS = [
+    { id:'rice',        name:'寿司饭（贯）', emoji:'🍚', calories:55,  protein:1.2, fat:0.2,  carb:12, category:'basic' },
+    { id:'maki_calif',  name:'加州卷（份）', emoji:'🍣', calories:180, protein:6,   fat:6,    carb:22, category:'roll' },
+    { id:'maki_tekka',  name:'铁火卷（份）', emoji:'🍱', calories:160, protein:10,  fat:2,    carb:24, category:'roll' },
+    { id:'maki_kappa',  name:'河童卷（份）', emoji:'🥒', calories:120, protein:3,   fat:1,    carb:24, category:'roll' },
+    { id:'chawanmushi', name:'茶碗蒸',       emoji:'🥣', calories:80,  protein:7,   fat:4,    carb:3,  category:'side' },
+    { id:'misoshiru',   name:'味噌汤',       emoji:'🍜', calories:60,  protein:4,   fat:2,    carb:6,  category:'side' },
+    { id:'edamame',     name:'枝豆',         emoji:'🫛', calories:100, protein:9,   fat:4,    carb:7,  category:'side' },
+    { id:'agedashi',    name:'揚げ出し豆腐',  emoji:'🍢', calories:150, protein:8,   fat:9,    carb:8,  category:'side' },
+    { id:'sashimi_mori',name:'刺身拼盘（5貫）',emoji:'🐟', calories:180, protein:28,  fat:5,    carb:0,  category:'sashimi' },
+    { id:'uni_ikura',   name:'海胆鲑鱼子丼',  emoji:'🍚', calories:320, protein:18,  fat:12,   carb:38, category:'don' },
+    { id:'matcha_pud',  name:'抹茶布丁',      emoji:'🍮', calories:160, protein:4,   fat:8,    carb:20, category:'dessert' },
+    { id:'yuzu_sorbet', name:'柚子雪葩',      emoji:'🍧', calories:90,  protein:0,   fat:0,    carb:23, category:'dessert' },
+    { id:'sake_daijinjo',name:'大吟酿（1合）', emoji:'🍶', calories:120, protein:0,   fat:0,    carb:8,  category:'drink' },
+    { id:'beer',        name:'生啤（中）',     emoji:'🍺', calories:150, protein:1,   fat:0,    carb:12, category:'drink' },
+    { id:'oolong',      name:'烏龍茶',        emoji:'🍵', calories:2,   protein:0,   fat:0,    carb:0,  category:'drink' },
+  ];
+  const CATEGORIES = [
+    { id:'fish',    name:'握寿司', emoji:'🐟', color:'#C41E3A' },
+    { id:'roll',    name:'卷物',   emoji:'🍱', color:'#B8860B' },
+    { id:'side',    name:'小食',   emoji:'🍢', color:'#11998e' },
+    { id:'sashimi', name:'刺身',   emoji:'🔪', color:'#E879A8' },
+    { id:'don',     name:'丼物',   emoji:'🍚', color:'#f59e0b' },
+    { id:'dessert', name:'甜品',   emoji:'🍮', color:'#8B5CF6' },
+    { id:'drink',   name:'饮品',   emoji:'🍶', color:'#3B82F6' },
+  ];
+  const DAILY_GOAL = 2000;
+  const counts = {};
+  let activeCat = 'fish';
+  const el = document.getElementById('tool-calories');
+  function getAllFoods() {
+    const fishFoods = FISH.map(f=>({ ...f, category:'fish', baseCal:f.calories, basePro:f.protein }));
+    return [...fishFoods, ...EXTRA_FOODS];
+  }
+  function getFoodById(id) {
+    return getAllFoods().find(f=>f.id===id) || FISH.find(f=>f.id===id);
+  }
+  function calcTotals() {
+    return getAllFoods().reduce((a,f)=>{
+      const n = counts[f.id]||0;
+      return {
+        cal: a.cal + (f.calories||f.baseCal||0)*n,
+        pro: a.pro + (f.protein||f.basePro||0)*n,
+        fat: a.fat + (f.fat||0)*n,
+        carb:a.carb+ (f.carb||0)*n,
+        items:a.items + n,
+      };
+    }, {cal:0, pro:0, fat:0, carb:0, items:0});
+  }
+  function getCategoryFoods(cat) {
+    if (cat === 'fish') return FISH.map(f=>({ ...f, category:'fish', baseCal:f.calories, basePro:f.protein }));
+    return EXTRA_FOODS.filter(f=>f.category===cat);
+  }
+  function renderCal() {
+    const total = calcTotals();
+    const pct = Math.min(100, Math.round(total.cal/DAILY_GOAL*100));
+    const foods = getCategoryFoods(activeCat);
+    const catColor = CATEGORIES.find(c=>c.id===activeCat)?.color || 'var(--red)';
+    el.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr;gap:1.5rem">
+      <div class="card" style="overflow:hidden">
+        <div style="background:linear-gradient(135deg,var(--red),#9B162D);padding:1.75rem 2rem;color:#fff">
+          <div style="display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:1rem">
+            <div>
+              <div style="font-size:13px;opacity:.75;margin-bottom:4px">本次用餐热量</div>
+              <div style="font-size:42px;font-weight:800;line-height:1">${total.cal}<span style="font-size:18px;opacity:.7;font-weight:400"> kcal</span></div>
+            </div>
+            <div style="display:flex;gap:1.5rem;text-align:center">
+              <div><div style="font-size:24px;font-weight:700">${total.items}</div><div style="font-size:11px;opacity:.7">品数</div></div>
+              <div><div style="font-size:24px;font-weight:700">${total.pro.toFixed(0)}g</div><div style="font-size:11px;opacity:.7">蛋白质</div></div>
+              <div><div style="font-size:24px;font-weight:700">${total.fat.toFixed(0)}g</div><div style="font-size:11px;opacity:.7">脂肪</div></div>
+              <div><div style="font-size:24px;font-weight:700">${total.carb.toFixed(0)}g</div><div style="font-size:11px;opacity:.7">碳水</div></div>
+            </div>
+          </div>
+        </div>
+        ${total.cal>0?`
+        <div style="padding:1.25rem 2rem;background:var(--bg-subtle)">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;font-size:12px">
+            <span style="color:var(--text-2);font-weight:600">每日推荐摄入 (${DAILY_GOAL} kcal)</span>
+            <span style="color:var(--text);font-weight:700">${pct}%</span>
+          </div>
+          <div style="height:10px;background:var(--border);border-radius:999px;overflow:hidden">
+            <div style="height:100%;width:${pct}%;border-radius:999px;background:linear-gradient(90deg,var(--red),#f59e0b);transition:width .6s ease"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-top:10px;font-size:11px;color:var(--text-muted)">
+            <span>⚠️ 成人女性推荐 1800-2000 kcal</span>
+            <span>男性推荐 2200-2600 kcal</span>
+          </div>
+        </div>`:''}
+      </div>
+      ${total.items>0?`
+      <div class="card" style="padding:1.5rem 2rem">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+          <h3 style="margin:0;font-size:15px;font-weight:800">📋 已选清单</h3>
+          <button onclick="clearCounts()" style="background:transparent;border:1px solid var(--border);color:var(--text-2);padding:6px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-family:inherit;font-weight:600;transition:all .2s">🗑️ 清空</button>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          ${getAllFoods().filter(f=>counts[f.id]>0).map(f=>{
+            const n = counts[f.id];
+            const cal = (f.calories||f.baseCal||0)*n;
+            return `<div style="display:flex;align-items:center;gap:8px;padding:6px 12px;background:rgba(196,30,58,.06);border:1px solid rgba(196,30,58,.2);border-radius:999px;font-size:13px">
+              <span>${f.emoji}</span>
+              <span style="font-weight:600">${f.name}</span>
+              <span style="color:var(--text-2)">× ${n}</span>
+              <span style="color:var(--red);font-weight:700">${cal} kcal</span>
+              <button onclick="changeCount('${f.id}',-1)" style="margin-left:4px;width:20px;height:20px;border-radius:50%;border:none;background:var(--red);color:#fff;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;padding:0">×</button>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`:''}
+      <div class="card" style="padding:1.5rem 2rem">
+        <h3 style="margin:0 0 1rem;font-size:15px;font-weight:800">🍽️ 选择食物</h3>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1.25rem;padding-bottom:1rem;border-bottom:1px solid var(--border)">
+          ${CATEGORIES.map(c=>`
+            <button onclick="switchCat('${c.id}')" style="padding:8px 16px;border-radius:999px;border:none;cursor:pointer;font-size:13px;font-weight:600;transition:all .2s;font-family:inherit;
+              background:${activeCat===c.id?c.color:'var(--bg-subtle)'};
+              color:${activeCat===c.id?'#fff':'var(--text-2)'};
+              box-shadow:${activeCat===c.id?'0 2px 8px '+c.color+'55':'none'}">
+              ${c.emoji} ${c.name}
+            </button>
+          `).join('')}
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:.75rem">
+          ${foods.map(f=>{
+            const n=counts[f.id]||0;
+            const cal = f.calories||f.baseCal||0;
+            return `<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;background:${n>0?catColor+'0d':'var(--bg-card)'};border:1.5px solid ${n>0?catColor+'66':'var(--border)'};transition:all .2s">
+              <span style="font-size:28px;flex-shrink:0">${f.emoji}</span>
+              <div style="flex:1;min-width:0">
+                <div style="font-weight:700;font-size:14px;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.name}</div>
+                <div style="font-size:12px;color:var(--text-muted)">🔥 ${cal} kcal · 蛋白 ${(f.protein||f.basePro||0).toFixed(1)}g</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+                <button onclick="changeCount('${f.id}',-1)" ${n===0?'disabled':''} style="width:28px;height:28px;border-radius:50%;border:1.5px solid var(--border);background:var(--bg-subtle);cursor:${n>0?'pointer':'not-allowed'};font-size:16px;display:flex;align-items:center;justify-content:center;opacity:${n>0?1:.3};transition:all .15s">−</button>
+                <span style="width:26px;text-align:center;font-weight:800;font-size:15px;color:${n>0?catColor:'var(--text-muted)'}">${n}</span>
+                <button onclick="changeCount('${f.id}',1)" style="width:28px;height:28px;border-radius:50%;border:none;background:${catColor};cursor:pointer;color:#fff;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all .15s">+</button>
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--text-muted);line-height:1.7;padding:0 .5rem">
+        ⚠️ 以上热量为估算值，基于标准分量计算。实际热量因食材份量、制作方法、调料等因素而异，仅供参考。
+        建议成年人每日摄入 1800-2600 kcal（根据性别、年龄、活动量调整）。
+      </div>
+    </div>`;
+  }
+  window.changeCount = function(id, d) { counts[id] = Math.max(0,(counts[id]||0)+d); renderCal(); };
+  window.clearCounts = function() { Object.keys(counts).forEach(k=>delete counts[k]); renderCal(); };
+  window.switchCat = function(c) { activeCat=c; renderCal(); };
+  renderCal();
+}
+
+// ── Tool 4: Quiz ─────────────────────────────────────────────────────────
+const QUIZ = [
+  {q:'日语中"旬"（しゅん）指的是什么？',opts:['寿司技法','食材最佳季节','清酒品牌','刀工手法'],ans:1,exp:'"旬"指某种食材风味最佳、最为时令的季节，是日本饮食文化中非常重要的概念。'},
+  {q:'以下哪种清酒最适合搭配脂肪丰厚的金枪鱼大腹？',opts:['起泡清酒','浊酒','纯米酒','梅酒'],ans:2,exp:'纯米酒口感饱满、米香醇厚，与大腹丰腴的脂肪相辅相成，形成绝妙平衡。'},
+  {q:'"出世鱼"是日本对哪类鱼的称呼？',opts:['洄游鱼类','随成长体型改名的鱼','深海鱼类','淡水鱼类'],ans:1,exp:'"出世鱼"指随着体型增大而被冠以不同名称的鱼，象征步步晋升，如鰤鱼（ブリ）等。'},
+  {q:'寿司中的"军舰卷"最初是为了承载哪种食材而发明的？',opts:['蟹肉','海胆（Uni）','鱼子酱','章鱼'],ans:1,exp:'军舰卷（軍艦巻き）由银座久兵衛在1941年发明，专为软嫩无法握制的海胆而设计。'},
+  {q:'以下哪种鱼在日本被称为"鱼中之王"，常用于婚宴和新年料理？',opts:['金枪鱼','真鲷（マダイ）','鰤鱼','比目鱼'],ans:1,exp:'真鲷因体色红亮、象征喜庆，被日本人奉为"鱼中之王"，是重要场合的必备食材。'},
+  {q:'"昆布締め"指的是什么处理技法？',opts:['用昆布水煮鱼','以昆布腌渍鱼肉以提鲜','昆布装饰摆盘','昆布汤浸泡'],ans:1,exp:'昆布締め是将鱼肉夹在昆布之间腌渍数小时，利用昆布的谷氨酸渗入鱼肉，极大提升鲜味。'},
+  {q:'以下哪种鱼是典型的"青背鱼"？',opts:['比目鱼','真鲷','竹荚鱼（アジ）','星鳗'],ans:2,exp:'竹荚鱼（アジ）是典型的青背鱼，含有丰富的DHA/EPA，秋季脂肪最为丰腴。'},
+  {q:'"北海道礼文岛"以出产哪种顶级食材著称？',opts:['帆立贝柱','甘虾','海胆','毛蟹'],ans:2,exp:'礼文岛因丰富的昆布海床，出产的馬糞海胆拥有无与伦比的甘甜与矿物感。'},
+];
+function renderQuiz() {
+  let idx=0, score=0, selected=null, history=[];
+  const el = document.getElementById('tool-quiz');
+  function renderQ() {
+    const q = QUIZ[idx];
+    el.innerHTML = `
+    <div class="card" style="padding:2rem;max-width:600px;margin:0 auto">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem">
+        <span style="font-size:13px;color:var(--text-muted);font-weight:600">${idx+1} / ${QUIZ.length}</span>
+        <div style="display:flex;gap:6px">${QUIZ.map((_,i)=>`<div style="width:28px;height:6px;border-radius:3px;background:${i<idx?(history[i]?'#22c55e':'#ef4444'):i===idx?'var(--red)':'var(--border)'};transition:all .3s"></div>`).join('')}</div>
+        <span style="font-size:13px;color:#16a34a;font-weight:700">✓ ${score} 分</span>
+      </div>
+      <div style="padding:1.25rem;background:var(--bg-subtle);border-radius:12px;border-left:4px solid var(--red);margin-bottom:1.5rem">
+        <div style="font-size:11px;font-weight:700;color:var(--red);margin-bottom:8px;letter-spacing:.05em">第 ${idx+1} 题</div>
+        <p style="font-size:17px;font-weight:700;margin:0;line-height:1.6">${q.q}</p>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:1.25rem" id="opts">
+        ${q.opts.map((opt,i)=>`
+          <button class="quiz-opt ${selected!==null&&i===q.ans?'correct':selected===i&&i!==q.ans?'wrong':''}"
+            onclick="answerQ(${i})" ${selected!==null?'disabled':''}>
+            <span style="display:inline-flex;width:24px;height:24px;border-radius:50%;align-items:center;justify-content:center;background:${selected!==null&&i===q.ans?'#dcfce7':selected===i&&i!==q.ans?'#fee2e2':'var(--bg-subtle)'};border:1.5px solid ${selected!==null&&i===q.ans?'#22c55e':selected===i&&i!==q.ans?'#ef4444':'var(--border)'};font-size:12px;font-weight:700;margin-right:10px;flex-shrink:0;color:${selected!==null&&i===q.ans?'#16a34a':selected===i&&i!==q.ans?'#b91c1c':'var(--text-2)'}">
+              ${selected!==null&&i===q.ans?'✓':selected===i&&i!==q.ans?'✗':String.fromCharCode(65+i)}
+            </span>${opt}
+          </button>`).join('')}
+      </div>
+      ${selected!==null?`
+        <div style="padding:14px 16px;background:${selected===q.ans?'rgba(34,197,94,.06)':'rgba(239,68,68,.06)'};border:1px solid ${selected===q.ans?'#22c55e44':'#ef444444'};border-radius:10px;margin-bottom:1.25rem">
+          <strong style="font-size:13px;color:${selected===q.ans?'#16a34a':'#dc2626'}">${selected===q.ans?'✅ 回答正确！':'❌ 正确答案：'+q.opts[q.ans]}</strong>
+          <p style="font-size:14px;color:var(--text-2);margin:6px 0 0;line-height:1.7">${q.exp}</p>
+        </div>
+        <button class="btn btn-primary" onclick="nextQ()" style="width:100%;justify-content:center;font-size:15px">${idx+1>=QUIZ.length?'📊 查看结果':'下一题 →'}</button>
+      `:''}
+    </div>`;
+  }
+  window.answerQ = function(i) {
+    if (selected!==null) return;
+    selected = i;
+    const correct = i===QUIZ[idx].ans;
+    if (correct) score++;
+    history.push(correct);
+    renderQ();
+  };
+  window.nextQ = function() {
+    if (idx+1>=QUIZ.length) {
+      const pct = Math.round(score/QUIZ.length*100);
+      const level = pct>=90?{l:'🏆 寿司宗师',c:'#f59e0b',m:'您对寿司文化的理解已臻化境！'}:pct>=70?{l:'🍣 资深爱好者',c:'var(--red)',m:'非常棒！继续深入探索寿司的世界吧。'}:pct>=50?{l:'🌸 初学者',c:'#3b82f6',m:'不错的开始！多浏览百科，你会进步很快的。'}:{l:'🐟 入门者',c:'#6b7280',m:'别气馁！寿司知识博大精深，慢慢探索吧。'};
+      el.innerHTML = `<div class="card" style="padding:2.5rem 2rem;text-align:center;max-width:520px;margin:0 auto">
+        <div style="font-size:64px;margin-bottom:16px">${pct>=90?'🏆':pct>=70?'🎉':pct>=50?'😊':'💪'}</div>
+        <h2 style="margin:0 0 8px;font-weight:800">测验结束！</h2>
+        <div style="font-size:52px;font-weight:800;color:${level.c};margin:12px 0 8px">${score} / ${QUIZ.length}</div>
+        <div style="font-size:20px;font-weight:700;color:${level.c};padding:8px 24px;border-radius:9999px;background:${level.c}18;display:inline-block;margin-bottom:12px">${level.l}</div>
+        <p style="color:var(--text-2);margin-bottom:1.75rem;line-height:1.7">${level.m}</p>
+        <div style="display:flex;justify-content:center;gap:8px;margin-bottom:1.75rem;flex-wrap:wrap">
+          ${history.map((ok,i)=>`<div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;background:${ok?'rgba(34,197,94,.1)':'rgba(239,68,68,.1)'};border:2px solid ${ok?'#22c55e':'#ef4444'}">${ok?'✓':'✗'}</div>`).join('')}
+        </div>
+        <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+          <button class="btn btn-primary" onclick="reQuiz()">🔄 再次挑战</button>
+          <a href="/wiki" class="btn btn-secondary">📖 复习百科</a>
+        </div>
+      </div>`;
+      return;
+    }
+    idx++; selected = null; renderQ();
+  };
+  window.reQuiz = function() { idx=0; score=0; selected=null; history=[]; renderQ(); };
+  renderQ();
+}
+
+window.renderTool = function(id) {
+  if (id==='pairing')  renderPairing();
+  if (id==='calendar') renderCalendar();
+  if (id==='calories') renderCalories();
+  if (id==='quiz')     renderQuiz();
+};
+
+// init pairing on load
+renderTool('pairing');
+document.getElementById('tool-pairing').dataset.rendered = '1';
+</script>

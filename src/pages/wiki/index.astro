@@ -1,0 +1,296 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getFishList } from '../../lib/notion';
+
+const allFish = await getFishList();
+const categories   = ['全部','红肉鱼','白肉鱼','青背鱼','贝类','软体','虾蟹','其他'];
+const difficulties = ['全部','简单','中等','精深'];
+---
+<BaseLayout title="寿司百科" activePage="wiki"
+  description="OmaToro 寿司百科 — 探索 18 种寿司鱼类的季节规律、清酒搭配与匠人技艺。">
+
+  <section class="wiki-hero">
+    <div class="container">
+      <h1 class="wiki-hero-title">📖 寿司百科</h1>
+      <p class="wiki-hero-sub">探索 {allFish.length} 种寿司鱼类 · 旬味季节 · 清酒搭配 · 匠人知识</p>
+      <form class="wiki-search-form" id="searchForm">
+        <div class="wiki-search-wrap">
+          <span class="search-icon">🔍</span>
+          <input class="input wiki-input" id="searchInput" type="text"
+            placeholder="搜索鱼种、产地、清酒类型..." autocomplete="off"/>
+          <button type="button" class="search-clear" id="searchClear" style="display:none">✕</button>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <div class="container wiki-body">
+    <div class="wiki-filters">
+      <div class="filter-group">
+        <span class="filter-label">分类</span>
+        <div class="filter-chips" id="catChips">
+          {categories.map((c,i) => (
+            <button class={`chip ${i===0?'active':''}`} data-cat={c}>{c}</button>
+          ))}
+        </div>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">难度</span>
+        <div class="filter-chips" id="diffChips">
+          {difficulties.map((d,i) => (
+            <button class={`chip chip-diff ${i===0?'active':''}`} data-diff={d}>{d}</button>
+          ))}
+        </div>
+      </div>
+    </div>
+
+    <div class="wiki-results-hdr">
+      <span id="resultCount">共找到 <strong>{allFish.length}</strong> 种鱼</span>
+      <a href="#submit" class="btn btn-primary btn-sm">✏️ 投稿新鱼种</a>
+    </div>
+
+    <div class="fish-grid" id="fishGrid">
+      {allFish.map((fish, i) => (
+        <a href={`/wiki/${fish.slug}`} class="card fish-card anim-up"
+          data-name={fish.name} data-ja={fish.japaneseName||''} 
+          data-cat={fish.category} data-diff={fish.difficulty||''}
+          data-sake={fish.sakePairing||''}
+          style={`animation-delay:${Math.min(i,12)*0.04}s`}>
+          <div class="fish-hdr" style={`background:linear-gradient(135deg,${fish.gradientFrom||'#C41E3A'},${fish.gradientTo||'#B8860B'})`}>
+            <span class="fish-emoji">{fish.emoji||'🐟'}</span>
+            <span class="fish-cat-badge">{fish.category}</span>
+            {fish.difficulty && (
+              <span class={`fish-diff-badge diff-${fish.difficulty}`}>{fish.difficulty}</span>
+            )}
+          </div>
+          <div class="fish-body">
+            <h3 class="fish-name">{fish.name}</h3>
+            <p class="fish-ja">{fish.japaneseName?.split(' / ')[0]}</p>
+            <div class="fish-months">
+              {fish.bestMonths?.length >= 10
+                ? <span class="badge badge-green">🌿 全年</span>
+                : fish.bestMonths?.slice(0,4).map(m => (
+                    <span class="badge badge-red" style="font-size:11px">{m}</span>
+                  ))
+              }
+            </div>
+            <div class="fish-meta">
+              <span>🍽️ {fish.eatingMethod}</span>
+              <span>🍶 {fish.sakePairing}</span>
+            </div>
+          </div>
+        </a>
+      ))}
+    </div>
+
+    <div id="emptyState" class="empty-state" style="display:none">
+      <div class="empty-icon">🔍</div>
+      <h3>未找到匹配的鱼种</h3>
+      <p>换个关键词或分类试试？</p>
+    </div>
+
+    <section class="submit-section" id="submit">
+      <div class="submit-inner">
+        <div class="submit-left">
+          <h2>✏️ 投稿新鱼种</h2>
+          <p>发现我们还没有收录的寿司食材？欢迎分享您的品鉴经验，让 OmaToro 社区一起完善这份图鉴。</p>
+          <ul class="submit-tips">
+            <li>✅ 管理员人工审核，通常 1-3 天内处理</li>
+            <li>✅ 优质投稿将收录为正式词条</li>
+            <li>✅ 投稿者将在词条中注明贡献</li>
+          </ul>
+        </div>
+        <form class="submit-form" id="submitForm">
+          <div class="form-row">
+            <div class="form-field">
+              <label>鱼种名称 *</label>
+              <input class="input" id="s_name" type="text" placeholder="如：带鱼" required/>
+            </div>
+            <div class="form-field">
+              <label>日文名</label>
+              <input class="input" id="s_ja" type="text" placeholder="如：たちうお"/>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>英文名</label>
+              <input class="input" id="s_en" type="text" placeholder="如：Cutlassfish"/>
+            </div>
+            <div class="form-field">
+              <label>分类</label>
+              <select class="input" id="s_cat">
+                <option>白肉鱼</option><option>红肉鱼</option>
+                <option>青背鱼</option><option>贝类</option>
+                <option>软体</option><option>虾蟹</option>
+                <option>其他</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>最佳季节</label>
+              <input class="input" id="s_season" type="text" placeholder="如：秋季（9-11月）"/>
+            </div>
+            <div class="form-field">
+              <label>推荐料理方式</label>
+              <input class="input" id="s_method" type="text" placeholder="如：盐烧·握寿司"/>
+            </div>
+          </div>
+          <div class="form-field">
+            <label>推荐清酒搭配</label>
+            <input class="input" id="s_sake" type="text" placeholder="如：辛口纯米酒"/>
+          </div>
+          <div class="form-field">
+            <label>产地</label>
+            <input class="input" id="s_origin" type="text" placeholder="如：日本各地沿海"/>
+          </div>
+          <div class="form-field">
+            <label>简介 *</label>
+            <textarea class="input" id="s_desc" rows="3"
+              placeholder="简述该鱼种的特点、口感、文化背景等..." required></textarea>
+          </div>
+          <div class="form-field">
+            <label>投稿者姓名（可选）</label>
+            <input class="input" id="s_author" type="text" placeholder="留名或匿名均可"/>
+          </div>
+          <button type="submit" class="btn btn-primary" style="width:100%;margin-top:4px">🚀 提交投稿</button>
+          <div id="submitMsg" class="submit-msg" style="display:none"></div>
+        </form>
+      </div>
+    </section>
+  </div>
+</BaseLayout>
+
+<style>
+.wiki-hero{background:linear-gradient(150deg,#1a0808 0%,#2d1008 40%,#1C1C1C 100%);padding:3rem 1.25rem 2.5rem;text-align:center}
+.wiki-hero-title{color:#fff;font-size:clamp(1.8rem,5vw,2.8rem);margin:0 0 10px}
+.wiki-hero-sub{color:rgba(255,255,255,.55);font-size:15px;margin:0 0 24px}
+.wiki-search-form{max-width:500px;margin:0 auto}
+.wiki-search-wrap{position:relative}
+.search-icon{position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:16px;opacity:.6;pointer-events:none}
+.wiki-input{padding-left:44px !important;background:rgba(255,255,255,.1) !important;border:1.5px solid rgba(255,255,255,.2) !important;color:#fff !important}
+.wiki-input::placeholder{color:rgba(255,255,255,.4) !important}
+.wiki-input:focus{border-color:rgba(196,30,58,.6) !important;box-shadow:0 0 0 3px rgba(196,30,58,.2) !important}
+.search-clear{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:transparent;border:none;color:rgba(255,255,255,.5);cursor:pointer;font-size:14px}
+.wiki-body{padding-top:1.75rem}
+.wiki-filters{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r-lg);padding:1.25rem 1.5rem;margin-bottom:1.5rem;display:flex;flex-direction:column;gap:14px}
+.filter-group{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.filter-label{font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;letter-spacing:.05em}
+.filter-chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{padding:5px 14px;border-radius:9999px;font-size:13px;font-weight:500;cursor:pointer;border:1.5px solid var(--border);background:var(--bg-card);color:var(--text-2);transition:all .15s}
+.chip:hover{border-color:var(--red);color:var(--red)}
+.chip.active{background:var(--red);border-color:var(--red);color:#fff}
+.chip-diff.active{background:var(--gold);border-color:var(--gold);color:#fff}
+.wiki-results-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;font-size:14px;color:var(--text-2)}
+.wiki-results-hdr strong{color:var(--text);font-size:16px}
+.fish-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:1.25rem;margin-bottom:2rem}
+.fish-card{text-decoration:none;display:block}
+.fish-emoji{font-size:3.5rem;position:relative;z-index:1;filter:drop-shadow(0 2px 4px rgba(0,0,0,.2))}
+.fish-cat-badge{position:absolute;bottom:8px;left:8px;z-index:2;font-size:11px;font-weight:600;padding:2px 8px;border-radius:9999px;background:rgba(255,255,255,.25);backdrop-filter:blur(4px);color:#fff}
+.fish-diff-badge{position:absolute;top:8px;right:8px;z-index:2;font-size:11px;font-weight:700;padding:3px 9px;border-radius:9999px;border:1px solid rgba(255,255,255,.4);color:#fff;backdrop-filter:blur(4px);background:rgba(0,0,0,.2)}
+.fish-body{padding:15px 17px 17px}
+.fish-name{font-size:17px;font-weight:700;margin:0 0 3px}
+.fish-ja{font-size:12px;color:var(--text-muted);margin:0 0 10px;font-style:italic}
+.fish-months{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px}
+.fish-meta{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--text-2)}
+.empty-state{text-align:center;padding:4rem 2rem}
+.empty-icon{font-size:3rem;margin-bottom:16px}
+.empty-state h3{font-size:1.2rem;margin:0 0 8px}
+.empty-state p{color:var(--text-muted)}
+.submit-section{background:var(--bg-subtle);border-radius:var(--r-lg);border:1px solid var(--border);padding:2.5rem;margin:3rem 0}
+.submit-inner{display:grid;grid-template-columns:1fr 1.6fr;gap:3rem;align-items:start}
+.submit-left h2{font-size:1.5rem;margin:0 0 12px}
+.submit-left p{color:var(--text-2);margin:0 0 16px;line-height:1.75;font-size:14px}
+.submit-tips{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:8px}
+.submit-tips li{font-size:13px;color:var(--text-2)}
+.submit-form{display:flex;flex-direction:column;gap:14px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.form-field{display:flex;flex-direction:column;gap:6px}
+.form-field label{font-size:13px;font-weight:600;color:var(--text-2)}
+.form-field textarea{resize:vertical;font-family:inherit}
+.submit-msg{padding:12px 16px;border-radius:var(--r);font-size:14px;font-weight:500;margin-top:4px}
+.submit-msg.success{background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0}
+.submit-msg.error{background:#fef2f2;color:#dc2626;border:1px solid #fecaca}
+@media(max-width:768px){.submit-inner{grid-template-columns:1fr;gap:2rem}.form-row{grid-template-columns:1fr}}
+@media(max-width:480px){.filter-group{gap:8px}.wiki-results-hdr{flex-direction:column;align-items:flex-start;gap:10px}}
+</style>
+
+<script>
+const cards = Array.from(document.querySelectorAll('#fishGrid .fish-card'));
+const countEl  = document.getElementById('resultCount');
+const emptyEl  = document.getElementById('emptyState');
+const searchEl = document.getElementById('searchInput');
+const clearBtn = document.getElementById('searchClear');
+let activeCat = '全部', activeDiff = '全部', searchQ = '';
+
+function filterCards() {
+  let shown = 0;
+  cards.forEach(c => {
+    const el = c;
+    const name = (el.dataset.name||''). toLowerCase();
+    const ja   = (el.dataset.ja||''). toLowerCase();
+    const sake = (el.dataset.sake||''). toLowerCase();
+    const cat  = el.dataset.cat||'';
+    const diff = el.dataset.diff||'';
+    const q    = searchQ.toLowerCase();
+    const vis  = (!q || name.includes(q) || ja.includes(q) || sake.includes(q))
+              && (activeCat  === '全部' || cat  === activeCat)
+              && (activeDiff === '全部' || diff === activeDiff);
+    el.style.display = vis ? '' : 'none';
+    if (vis) shown++;
+  });
+  if (countEl) countEl.innerHTML = `共找到 <strong>${shown}</strong> 种鱼`;
+  if (emptyEl) emptyEl.style.display = shown === 0 ? '' : 'none';
+}
+
+document.getElementById('catChips')?.addEventListener('click', e => {
+  const btn = e.target.closest('.chip');
+  if (!btn) return;
+  document.querySelectorAll('#catChips .chip').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  activeCat = btn.dataset.cat || '全部';
+  filterCards();
+});
+document.getElementById('diffChips')?.addEventListener('click', e => {
+  const btn = e.target.closest('.chip');
+  if (!btn) return;
+  document.querySelectorAll('#diffChips .chip').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  activeDiff = btn.dataset.diff || '全部';
+  filterCards();
+});
+searchEl?.addEventListener('input', () => {
+  searchQ = searchEl.value;
+  clearBtn.style.display = searchQ ? '' : 'none';
+  filterCards();
+});
+clearBtn?.addEventListener('click', () => {
+  searchEl.value = '';
+  searchQ = '';
+  clearBtn.style.display = 'none';
+  filterCards();
+});
+
+document.getElementById('submitForm')?.addEventListener('submit', e => {
+  e.preventDefault();
+  const get = id => document.getElementById(id)?.value.trim();
+  const entry = {
+    id: Date.now().toString(36),
+    name: get('s_name'), nameJa: get('s_ja'), nameEn: get('s_en'),
+    category: get('s_cat'), season: get('s_season'),
+    eatingMethod: get('s_method'), sakePairing: get('s_sake'),
+    origin: get('s_origin'), description: get('s_desc'),
+    submittedBy: get('s_author'), status: 'pending',
+    submittedAt: new Date().toISOString()
+  };
+  const prev = JSON.parse(localStorage.getItem('sushi_submissions') || '[]');
+  prev.push(entry);
+  localStorage.setItem('sushi_submissions', JSON.stringify(prev));
+  const msg = document.getElementById('submitMsg');
+  msg.className = 'submit-msg success';
+  msg.textContent = `✅ 感谢投稿「${entry.name}」！管理员将在 1-3 天内审核。`;
+  msg.style.display = '';
+  e.target.reset();
+  setTimeout(() => { msg.style.display = 'none'; }, 6000);
+});
+</script>
